@@ -15,6 +15,7 @@
     <script>
 
         connection = {};
+        server_url = 'http://localhost:3000';
 
         function createSocket(url, path, token) {
             let socket = io.connect(url, {
@@ -29,13 +30,12 @@
 
         function login(el) {
             event.preventDefault();
-            //console.log(formData);
+
             fd = new FormData(el);
-            // fd.append('email', 'ki.sandeep11@gmail.com');
-            // fd.append('password', '123');
+
             $.ajax({
                 type: 'post',
-                url: 'http://localhost:3000/auth/login',
+                url: server_url + '/auth/login',
                 data: fd,
                 contentType: false,
                 cache: false,
@@ -89,7 +89,7 @@
 
                 console.log('initiate socket connection')
 
-                connection.socket = createSocket('http://localhost:3000', '/test', sessionStorage.getItem("token"));
+                connection.socket = createSocket(server_url, '/test', sessionStorage.getItem("token"));
 
                 connection.socket.on('pong', (data) => {
                     console.log(data.message)
@@ -102,14 +102,6 @@
 
                 connection.socket.on('user_list', (data) => {
                     renderUser(data)
-                })
-
-                connection.socket.on('user_connect', (data) => {
-                    getUser()
-                })
-
-                connection.socket.on('user_disconnect', (data) => {
-                    getUser()
                 })
             }
         }, 1000);
