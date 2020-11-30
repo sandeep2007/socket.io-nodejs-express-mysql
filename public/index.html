@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket Example</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.1/socket.io.js"></script>
+    <script>
+
+        connection = {};
+
+        function createSocket(url, path, token) {
+            let socket = io.connect(url, {
+                path: path,
+                query: {
+                    token: token
+                }
+            });
+
+            return socket;
+        }
+
+        function login(el) {
+            event.preventDefault();
+            //console.log(formData);
+            fd = new FormData(el);
+            // fd.append('email', 'ki.sandeep11@gmail.com');
+            // fd.append('password', '123');
+            $.ajax({
+                type: 'post',
+                url: 'http://localhost:3000/auth/login',
+                data: fd,
+                contentType: false,
+                cache: false,
+                processData: false,
+                success: function (response) {
+                    //console.log(response)
+                    if (response.data.token) {
+                        sessionStorage.setItem("token", response.data.token);
+                        $('#login-form').hide();
+                        $('#logout-btn').show();
+
+                        var template = `<div class="alert alert-success alert-dismissible">
+                                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                                            <strong>Success!</strong> You are logged in.
+                                        </div>`;
+                        showMsg('#msg', template);
+                    }
+                },
+                error: function (err) {
+                    console.log(err)
+                }
+            });
+        }
+
+        function showMsg(id, template) {
+            $('#msg').html(template);
+            setTimeout(function () {
+                $('#msg').empty();
+            }, 4000);
+        }
+
+
+        function logout() {
+            connection.socket.disconnect();
+            connection.socket = null;
+            sessionStorage.clear()
+            $('#user-list').empty();
+            $('#login-form').show();
+            $('#logout-btn').hide();
+        }
+
+        setInterval(() => {
+            if (!sessionStorage.getItem("token")) {
+                $('#login-form').show();
+                $('#logout-btn').hide();
+            } else {
+                $('#login-form').hide();
+                $('#logout-btn').show();
+            }
+            if (sessionStorage.getItem("token") && !connection.socket) {
+
+                console.log('initiate socket connection')
+
+                connection.socket = createSocket('http://localhost:3000', '/test', sessionStorage.getItem("token"));
+
+                connection.socket.on('pong', (data) => {
+                    console.log(data.message)
+                    var template = `<div class="alert alert-success alert-dismissible">
+                                            <button type="button" class="close" data-dismiss="alert">&times;</button>
+                                            <strong>Success!</strong> You are connected.
+                                        </div>`;
+                    showMsg('#msg', template);
+                })
+
+                connection.socket.on('user_list', (data) => {
+                    renderUser(data)
+                })
+
+                connection.socket.on('user_connect', (data) => {
+                    getUser()
+                })
+
+                connection.socket.on('user_disconnect', (data) => {
+                    getUser()
+                })
+            }
+        }, 1000);
+
+        function test() {
+            if (connection.socket) {
+                connection.socket.emit('ping', {
+                    message: 'Connected'
+                });
+            }
+            else {
+                var template = `<div class="alert alert-danger alert-dismissible">
+                                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                                    <strong>Failed!</strong> You are disconnected.
+                                </div>`;
+                showMsg('#msg', template);
+                console.log('Disconnected');
+            }
+        }
+
+        function getUser() {
+            connection.socket.emit('get_user', {
+                message: 'Connected'
+            });
+        }
+
+        function renderUser(data) {
+            let userElement = data.map((data, index) => {
+                //console.log(data)
+                return `<a href="#" class="list-group-item ${(data.socket_id ? '' : 'disabled')}" > <i class="fa fa-circle ${(data.socket_id ? 'text-success' : 'text-danger')}"></i> ${data.email}</a>`;
+
+
+
+            });
+            $('#user-list').html(userElement);
+        }
+    </script>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link active" href="#">Socket Example</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="javascript:{}" onclick="test()">Test Connection</a>
+            </li>
+            <li class="nav-item" id="logout-btn" style="display:none">
+                <a class="nav-link" href="javascript:{}" onclick="logout()">Logout</a>
+            </li>
+        </ul>
+
+    </nav>
+
+    <div class="d-flex justify-content-center">
+        <div class="mt-5" style="width:50vw">
+            <div id="msg" style="height:70px"></div>
+            <div class="list-group" id="user-list"></div>
+
+            <div class="jumbotron" id="login-form" style="display:none">
+                <h1>Login</h1>
+                <form onsubmit="login(this)">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" class="form-control" placeholder="Enter email" id="email" name="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="pwd">Password:</label>
+                        <input type="password" class="form-control" placeholder="Enter password" id="pwd"
+                            name="password">
+                    </div>
+
+                    <button type="submit" class="btn btn-success">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
